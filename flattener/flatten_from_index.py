@@ -1,3 +1,5 @@
+# TODO - plans
+
 # import dependencies
 import time
 import datetime
@@ -6,6 +8,8 @@ import pandas as pd
 import logging
 import csv
 import json
+from hurry.filesize import size
+
 
 # set up some logging
 reload(logging) # per http://stackoverflow.com/a/21475297/252671
@@ -17,21 +21,23 @@ logging.basicConfig(format='%(asctime)s: [%(levelname)s]: %(message)s',level=log
 # helper function
 def get_json_from_url(url):
     try:
-        logging.info("... HTTP GET'ing: "+ url)
-        r = requests.get(url)
-        r = r.json()
+        try: 
+            head = requests.head(url)
+            payload_size = size(int(head.headers['Content-Length']))
+        except: 
+            payload_size = "UNKNOWN"
+        logging.info("... HTTP GET'ing: {0} [the file size is {1}".format(url, payload_size))
+        data = requests.get(url)
+        data = data.json()
     except:
-        logging.debug("  Request Failed")
-        r = {}
-    # logging.debug(r)
-    return r
+        logging.debug("!!! Request Failed")
+        data = {}
+    return data
 
 
 array_of_index_files = [
     "https://fm.formularynavigator.com/jsonFiles/publish/11/47/cms-data-index.json",
     "https://www.deltadental.com/CMSDirectory/index.json",
-    "https://www.getjsonfile.com/cms-data-index.json"
-    "https://api.humana.com/v1/cms/index.json",
 ]
 
 all_drugs = []
