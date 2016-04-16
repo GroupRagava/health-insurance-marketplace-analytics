@@ -5,6 +5,7 @@ import requests
 import pandas as pd
 import logging
 import csv
+import json
 
 # set up some logging
 reload(logging) # per http://stackoverflow.com/a/21475297/252671
@@ -16,7 +17,7 @@ logging.basicConfig(format='%(asctime)s: [%(levelname)s]: %(message)s',level=log
 # helper function
 def get_json_from_url(url):
     try:
-        logging.info("HTTP GET'ing: "+ url)
+        logging.info("... HTTP GET'ing: "+ url)
         r = requests.get(url)
         r = r.json()
     except:
@@ -29,46 +30,82 @@ def get_json_from_url(url):
 array_of_index_files = [
     "https://fm.formularynavigator.com/jsonFiles/publish/11/47/cms-data-index.json",
     "https://www.deltadental.com/CMSDirectory/index.json",
-    # "https://www.getjsonfile.com/cms-data-index.json"
-    # "https://api.humana.com/v1/cms/index.json",
+    "https://www.getjsonfile.com/cms-data-index.json"
+    "https://api.humana.com/v1/cms/index.json",
 ]
 
 all_drugs = []
 all_plans = []
+all_providers = []
 
+drug_fields_to_include = ['rxnorm_id','drug_name']
+provider_fields_to_include = ['npi','type','last_updated_on','phone','accepting','gender','facility_name']
+provider_nested_fields_to_concatenate = ['addresses', 'specialty', 'languages', 'facility_type']
+provider_nested_fields_in_name = ['prefix','first','middle','last','suffix']
 # take a index.json file, fetch it
 for index_url in array_of_index_files:
     logging.info("About to fetch index.json: {0}".format(index_url))
     index_json = get_json_from_url(index_url)
     
-    # for all URLs in formulary_urls array, flatten into one array
-    for formulary_url in index_json["formulary_urls"]:
-        logging.info("About to fetch formulary.json: {0}".format(formulary_url))
-        formulary_json = get_json_from_url(formulary_url)
-        for drug in formulary_json:
-            for plan in drug["plans"]:
-                drug_plan_dict = {
-                    '_index_url': index_url,
-                    '_formulary_url': formulary_url,
-                    'rxnorm_id': drug.get('rxnorm_id'),
-                    'drug_name': drug.get('drug_name')
-                }
-                drug_plan_dict.update(plan)
-                all_drugs.append(drug_plan_dict)
+    # # for all URLs in formulary_urls array, flatten into one array
+    # for formulary_url in index_json["formulary_urls"]:
+    #     logging.info("About to fetch formulary.json: {0}".format(formulary_url))
+    #     formulary_json = get_json_from_url(formulary_url)
+    #     logging.info("... processing formulary.json: {0}".format(formulary_url))
+    #     for drug in formulary_json:
+    #         for plan in drug["plans"]:
+    #             drug_plan_dict = {
+    #                 '_index_url': index_url,
+    #                 '_formulary_url': formulary_url
+    #             }
+    #            for field in drug_fields_to_include:
+    #                provider_plan_dict[field] = provider.get(field)
+    #             drug_plan_dict.update(plan)
+    #             all_drugs.append(drug_plan_dict)
 
 
-    # for all URLs in plan_urls array, flatten into one array
-    for plan_url in index_json["plan_urls"]:
-        logging.info("About to fetch plans.json: {0}".format(plan_url))
+    # # for all URLs in plan_urls array, flatten into one array
+    # for plan_url in index_json["plan_urls"]:
+    #     logging.info("About to fetch plans.json: {0}".format(plan_url))
+    #     # plan_json = get_json_from_url(formulary_url)
+    #     logging.info("... processing plan.json: {0}".format(plan_url))
+
 
     # for all URLs in provider_urls array, flatten into one array
     for provider_url in index_json["provider_urls"]:
         logging.info("About to fetch providers.json: {0}".format(provider_url))
+        provider_json = get_json_from_url(provider_url)
+        logging.info("... processing providers.json: {0}".format(provider_url))
+        for provider in provider_json:
+            for plan in provider["plans"]:
+                provider_plan_dict = {
+                    '_index_url': index_url,
+                    '_provider_url': provider_url,
+                }
+                for field in provider_fields_to_include:
+                    provider_plan_dict[field] = provider.get(field)
+                for field in provider_nested_fields_in_name:
+                    if(provider.get("name")):
+                        provider_plan_dict['name.{0}'.format(field)] = provider["name"].get(field)
+                    else:
+                        provider_plan_dict['name.{0}'.format(field)] = None
+                for field in provider_nested_fields_to_concatenate:
+                    field_value = provider.get(field)
+                    if(field_value == None):
+                        provider_plan_dict['_n_{0}'.format(field)] = 0
+                        provider_plan_dict[field] = None
+                    else:
+                        provider_plan_dict['_n_{0}'.format(field)] = len(field_value)
+                        provider_plan_dict[field] = json.dumps(field_value)
+                provider_plan_dict.update(plan)
+                all_providers.append(provider_plan_dict)
+
 
 # Save compiled data into CSV and/or JSON files
 files_to_generate = [
-    {'name': 'all_drugs', 'data': all_drugs, 'csv': True, 'json': False},
-    {'name': 'all_plans', 'data': all_plans, 'csv': True, 'json': False}
+    # {'name': 'all_drugs', 'data': all_drugs, 'csv': True, 'json': False},
+    # {'name': 'all_plans', 'data': all_plans, 'csv': True, 'json': False}
+    {'name': 'all_providers', 'data': all_providers, 'csv': True, 'json': False}
 ]
 
 for file_info in files_to_generate:
