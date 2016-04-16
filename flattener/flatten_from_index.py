@@ -68,7 +68,7 @@ for index_url in array_of_index_files:
 # Save compiled data into CSV and/or JSON files
 files_to_generate = [
     {'name': 'all_drugs', 'data': all_drugs, 'csv': True, 'json': False},
-    {'plans': 'all_plans', 'data': all_plans, 'csv': True, 'json': False}
+    {'name': 'all_plans', 'data': all_plans, 'csv': True, 'json': False}
 ]
 
 for file_info in files_to_generate:
